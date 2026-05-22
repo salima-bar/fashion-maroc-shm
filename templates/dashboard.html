@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord — FASHION MAROC{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h2 fw-bold text-dark">
+        <i class="bi bi-speedometer2 text-warning me-2"></i>Tableau de bord
+    </h1>
+    <p class="text-muted mb-0">Vue globale du stock et des alertes produits</p>
+</div>
+
+{# Cartes KPI #}
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                    <i class="bi bi-box-seam fs-3 text-primary"></i>
+                </div>
+                <div>
+                    <p class="text-muted small mb-1 text-uppercase fw-semibold">Total produits</p>
+                    <h2 class="mb-0 fw-bold">{{ total_produits }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100 {% if nb_alertes > 0 %}border-danger border-2{% endif %}">
+            <div class="card-body d-flex align-items-center">
+                <div class="rounded-circle bg-danger bg-opacity-10 p-3 me-3">
+                    <i class="bi bi-exclamation-triangle fs-3 text-danger"></i>
+                </div>
+                <div>
+                    <p class="text-muted small mb-1 text-uppercase fw-semibold">Produits en alerte</p>
+                    <h2 class="mb-0 fw-bold text-danger">{{ nb_alertes }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Tableau des produits #}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+        <h2 class="h5 mb-0 fw-semibold">
+            <i class="bi bi-table me-2"></i>Inventaire des produits
+        </h2>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Référence</th>
+                        <th scope="col">Libellé</th>
+                        <th scope="col">Catégorie</th>
+                        <th scope="col" class="text-end">Prix (MAD)</th>
+                        <th scope="col" class="text-center">Quantité disponible</th>
+                        <th scope="col" class="text-center">Seuil minimum</th>
+                        <th scope="col" class="text-center">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produit in produits %}
+                    <tr class="{% if produit.est_en_alerte %}table-danger{% endif %}">
+                        <td class="fw-semibold">{{ produit.id_produit }}</td>
+                        <td><code>{{ produit.reference or '—' }}</code></td>
+                        <td>{{ produit.libelle or '—' }}</td>
+                        <td>
+                            {% if produit.categorie %}
+                                {{ produit.categorie.libelle_categorie }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if produit.prix_vente is not none %}
+                                {{ "%.2f"|format(produit.prix_vente) }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if produit.stock %}
+                                {{ produit.stock.quantite_disponible if produit.stock.quantite_disponible is not none else '—' }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if produit.stock %}
+                                {{ produit.stock.seuil_minimum if produit.stock.seuil_minimum is not none else '—' }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if produit.est_en_alerte %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Alerte
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success">OK</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            Aucun produit enregistré.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-white text-muted small">
+        <i class="bi bi-info-circle me-1"></i>
+        Les lignes en <span class="badge bg-danger">rouge</span> indiquent un stock inférieur au seuil minimum.
+    </div>
+</div>
+{% endblock %}

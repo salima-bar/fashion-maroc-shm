@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Rapports — FASHION MAROC{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-card {
+        min-height: 380px;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .kpi-rapport {
+        border-left: 4px solid var(--fm-accent);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h2 fw-bold text-dark">
+        <i class="bi bi-bar-chart-line text-primary me-2"></i>Rapports &amp; analyses
+    </h1>
+    <p class="text-muted mb-0">
+        Indicateurs calculés en temps réel depuis la base PostgreSQL
+    </p>
+</div>
+
+{# KPI résumé #}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm kpi-rapport h-100">
+            <div class="card-body">
+                <p class="text-muted small text-uppercase fw-semibold mb-1">Valeur totale du stock</p>
+                <h2 class="fw-bold mb-0 text-primary">
+                    {{ "%.2f"|format(valeur_totale_globale) }} <small class="fs-6 text-muted">MAD</small>
+                </h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-muted small text-uppercase fw-semibold mb-1">Produits référencés</p>
+                <h2 class="fw-bold mb-0">{{ nb_produits }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 {% if nb_alertes > 0 %}border-danger border-2{% endif %}">
+            <div class="card-body">
+                <p class="text-muted small text-uppercase fw-semibold mb-1">Taux en alerte</p>
+                <h2 class="fw-bold mb-0 {% if nb_alertes > 0 %}text-danger{% else %}text-success{% endif %}">
+                    {{ taux_alerte }} %
+                </h2>
+                <small class="text-muted">{{ nb_alertes }} produit(s) sous le seuil</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    {# Graphique 1 — Valeur du stock par catégorie #}
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm chart-card h-100">
+            <div class="card-header bg-white py-3">
+                <h2 class="h5 mb-0 fw-semibold">
+                    <i class="bi bi-currency-exchange me-2 text-primary"></i>
+                    Valeur financière du stock par catégorie
+                </h2>
+                <small class="text-muted">Σ (quantité disponible × prix de vente)</small>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="chartValeurCategories"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Graphique 2 — Produits sains vs en alerte #}
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm chart-card h-100">
+            <div class="card-header bg-white py-3">
+                <h2 class="h5 mb-0 fw-semibold">
+                    <i class="bi bi-pie-chart me-2 text-danger"></i>
+                    Répartition des alertes stock
+                </h2>
+                <small class="text-muted">Produits sains vs en alerte</small>
+            </div>
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                <div class="chart-container w-100" style="max-width: 280px;">
+                    <canvas id="chartAlertes"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    // Données PostgreSQL sérialisées côté serveur (Flask → JSON)
+    const donneesValeur = {{ chart_valeur_json | safe }};
+    const donneesAlertes = {{ chart_alertes_json | safe }};
+
+    const paletteCategories = [
+        '#1a1a2e', '#c9a227', '#16213e', '#e94560', '#0f3460', '#533483'
+    ];
+
+    // Graphique 1 — Barres : valeur du stock par catégorie
+    new Chart(document.getElementById('chartValeurCategories'), {
+        type: 'bar',
+        data: {
+            labels: donneesValeur.labels,
+            datasets: [{
+                label: 'Valeur (MAD)',
+                data: donneesValeur.valeurs,
+                backgroundColor: paletteCategories.map(c => c + 'cc'),
+                borderColor: paletteCategories,
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed.y.toLocaleString('fr-FR')} MAD`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'MAD' }
+                }
+            }
+        }
+    });
+
+    // Graphique 2 — Anneau (Doughnut) : sains vs alerte
+    new Chart(document.getElementById('chartAlertes'), {
+        type: 'doughnut',
+        data: {
+            labels: donneesAlertes.labels,
+            datasets: [{
+                data: donneesAlertes.valeurs,
+                backgroundColor: ['#198754', '#dc3545'],
+                borderColor: '#fff',
+                borderWidth: 3,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '58%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 16, font: { size: 13 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const total = donneesAlertes.nb_total;
+                            const pct = total ? (ctx.parsed / total * 100).toFixed(1) : 0;
+                            return ` ${ctx.label} : ${ctx.parsed} (${pct} %)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
